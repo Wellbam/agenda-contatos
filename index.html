@@ -1,75 +1,185 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agenda de Contatos</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    .actions a { margin-right: 10px; text-decoration: none; }
+    body {
+      background-color: #f2f2f2;
+      font-family: Arial, sans-serif;
+      font-size: 1.2em;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    input[type="file"], input[type="text"], button {
+      font-size: 1em;
+      margin: 10px 0;
+      padding: 10px;
+      width: 100%;
+      max-width: 400px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .contato {
+      background-color: #fff;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px auto;
+      max-width: 600px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .botoes {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .botoes button {
+      flex: 1;
+      padding: 8px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        font-size: 1em;
+        padding: 10px;
+      }
+
+      .contato {
+        padding: 10px;
+      }
+
+      .botoes {
+        flex-direction: column;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>📇 Minha Agenda de Contatos</h1>
+  <h1>📇 Agenda de Contatos</h1>
+
   <input type="file" id="vcfInput" accept=".vcf" />
-  <table id="contactsTable">
-    <thead>
-      <tr>
-        <th>Nome</th>
-        <th>Telefone</th>
-        <th>Email</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <input type="text" id="busca" placeholder="🔍 Buscar contato..." oninput="filtrarContatos()" />
+  <button onclick="exportarCSV()">📤 Exportar CSV</button>
+
+  <div id="listaContatos"></div>
 
   <script>
-    document.getElementById('vcfInput').addEventListener('change', function (event) {
-      const file = event.target.files[0];
+    document.getElementById('vcfInput').addEventListener('change', function (e) {
+      const file = e.target.files[0];
       if (!file) return;
 
       const reader = new FileReader();
       reader.onload = function (e) {
-        const lines = e.target.result.split(/\r?\n/);
-        const contacts = [];
-        let contact = {};
-
-        lines.forEach(line => {
-          if (line.startsWith("FN:")) {
-            contact.name = line.substring(3);
-          } else if (line.startsWith("TEL")) {
-            contact.phone = line.split(":")[1];
-          } else if (line.startsWith("EMAIL")) {
-            contact.email = line.split(":")[1];
-          } else if (line.startsWith("END:VCARD")) {
-            contacts.push(contact);
-            contact = {};
-          }
-        });
-
-        const tbody = document.querySelector("#contactsTable tbody");
-        tbody.innerHTML = "";
-        contacts.forEach(c => {
-          const row = document.createElement("tr");
-          row.innerHTML = `
-            <td>${c.name || ""}</td>
-            <td>${c.phone || ""}</td>
-            <td>${c.email || ""}</td>
-            <td class="actions">
-              ${c.phone ? `<a href="tel:${c.phone}">📞 Ligar</a>` : ""}
-              ${c.phone ? `<a href="https://wa.me/${c.phone.replace(/\D/g, '')}" target="_blank">💬 WhatsApp</a>` : ""}
-              ${c.email ? `<a href="mailto:${c.email}">✉️ Email</a>` : ""}
-            </td>
-          `;
-          tbody.appendChild(row);
-        });
+        const text = e.target.result;
+        const contatos = parseVCF(text);
+        localStorage.setItem('contatosSalvos', JSON.stringify(contatos));
+        exibirContatos(contatos);
       };
-
       reader.readAsText(file);
     });
+
+    function parseVCF(text) {
+      const contatos = [];
+      const cards = text.split('END:VCARD');
+      cards.forEach(card => {
+        const nomeMatch = card.match(/FN:(.+)/);
+        const telMatch = card.match(/TEL.*:(.+)/);
+        const emailMatch = card.match(/EMAIL.*:(.+)/);
+
+        if (nomeMatch) {
+          contatos.push({
+            nome: nomeMatch[1],
+            telefone: telMatch ? telMatch[1] : '',
+            email: emailMatch ? emailMatch[1] : ''
+          });
+        }
+      });
+      return contatos;
+    }
+
+    function exibirContatos(contatos) {
+      const lista = document.getElementById('listaContatos');
+      lista.innerHTML = '';
+      contatos.forEach(contato => {
+        const div = document.createElement('div');
+        div.className = 'contato';
+        div.innerHTML = `
+          <strong>${contato.nome}</strong><br>
+          ${contato.telefone ? '📞 ' + contato.telefone + '<br>' : ''}
+          ${contato.email ? '✉️ ' + contato.email + '<br>' : ''}
+          <div class="botoes">
+            ${contato.telefone ? `<button onclick="ligar('${contato.telefone}')"><i class="fas fa-phone"></i></button>` : ''}
+            ${contato.telefone ? `<button onclick="whatsapp('${contato.telefone}')"><i class="fab fa-whatsapp"></i></button>` : ''}
+            ${contato.email ? `<button onclick="email('${contato.email}')"><i class="fas fa-envelope"></i></button>` : ''}
+          </div>
+        `;
+        lista.appendChild(div);
+      });
+    }
+
+    function ligar(numero) {
+      window.open(`tel:${numero}`);
+    }
+
+    function whatsapp(numero) {
+      const numLimpo = numero.replace(/\D/g, '');
+      window.open(`https://wa.me/${numLimpo}`);
+    }
+
+    function email(endereco) {
+      window.open(`mailto:${endereco}`);
+    }
+
+    function filtrarContatos() {
+      const termo = document.getElementById('busca').value.toLowerCase();
+      const contatos = JSON.parse(localStorage.getItem('contatosSalvos')) || [];
+      const filtrados = contatos.filter(c =>
+        c.nome.toLowerCase().includes(termo) ||
+        (c.telefone && c.telefone.toLowerCase().includes(termo)) ||
+        (c.email && c.email.toLowerCase().includes(termo))
+      );
+      exibirContatos(filtrados);
+    }
+
+    function exportarCSV() {
+      const contatos = JSON.parse(localStorage.getItem('contatosSalvos')) || [];
+      let csv = 'Nome,Telefone,Email\n';
+      contatos.forEach(c => {
+        csv += `"${c.nome}","${c.telefone}","${c.email}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'contatos.csv';
+      a.click();
+    }
+
+    // Carregar contatos salvos ao abrir a página
+    window.onload = function () {
+      const contatosSalvos = localStorage.getItem('contatosSalvos');
+      if (contatosSalvos) {
+        const contatos = JSON.parse(contatosSalvos);
+        exibirContatos(contatos);
+      }
+    };
   </script>
 </body>
 </html>
