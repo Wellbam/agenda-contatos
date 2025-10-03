@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Agenda de Contatos</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    .actions a { margin-right: 10px; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <h1>📇 Minha Agenda de Contatos</h1>
+  <input type="file" id="vcfInput" accept=".vcf" />
+  <table id="contactsTable">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Telefone</th>
+        <th>Email</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    document.getElementById('vcfInput').addEventListener('change', function (event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const lines = e.target.result.split(/\r?\n/);
+        const contacts = [];
+        let contact = {};
+
+        lines.forEach(line => {
+          if (line.startsWith("FN:")) {
+            contact.name = line.substring(3);
+          } else if (line.startsWith("TEL")) {
+            contact.phone = line.split(":")[1];
+          } else if (line.startsWith("EMAIL")) {
+            contact.email = line.split(":")[1];
+          } else if (line.startsWith("END:VCARD")) {
+            contacts.push(contact);
+            contact = {};
+          }
+        });
+
+        const tbody = document.querySelector("#contactsTable tbody");
+        tbody.innerHTML = "";
+        contacts.forEach(c => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${c.name || ""}</td>
+            <td>${c.phone || ""}</td>
+            <td>${c.email || ""}</td>
+            <td class="actions">
+              ${c.phone ? `<a href="tel:${c.phone}">📞 Ligar</a>` : ""}
+              ${c.phone ? `<a href="https://wa.me/${c.phone.replace(/\D/g, '')}" target="_blank">💬 WhatsApp</a>` : ""}
+              ${c.email ? `<a href="mailto:${c.email}">✉️ Email</a>` : ""}
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      };
+
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
